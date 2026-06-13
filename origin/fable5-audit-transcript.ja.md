@@ -2,6 +2,8 @@
 
 [English](fable5-audit-transcript.md) | **日本語（逐語・正本）**
 
+> **対象アプリ：** 監査対象の `expense-app` は、**レシート（立替経費）を集計するHTML製アプリ**（データはlocalStorageでブラウザ内に保存）。
+>
 > parablex-kit の由来となった、**Claude Fable 5 による実監査の全文記録（日本語原文）**。これが**逐語の正本**であり、英語版（`fable5-audit-transcript.md`）は本ファイルの翻訳。
 > 環境固有情報（パス・ユーザー名）・個人情報・監査対象アプリ名のみ伏字化（`<repo>` / `<home>` / `expense-app` 等）。指摘内容・行番号・推論は原文のまま。
 >

@@ -2,6 +2,8 @@
 
 **English** | [日本語（逐語・正本 / verbatim original）](fable5-audit-transcript.ja.md)
 
+> **Context:** the audited target (`expense-app`) is a single-file **HTML app for tallying receipts / personal expense reimbursements** (data stored in the browser via localStorage).
+>
 > Full transcript of the actual Claude Fable 5 audit passes this kit was distilled from.
 > This English version is a **translation**; the authoritative **verbatim** record is the Japanese original ([fable5-audit-transcript.ja.md](fable5-audit-transcript.ja.md)).
 > Only environment-specific info (paths, usernames), personal info, and the target app name are redacted (`<repo>` / `<home>` / `expense-app`). Findings, line numbers, and reasoning are otherwise faithful to the original.
