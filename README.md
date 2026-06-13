@@ -31,6 +31,8 @@ No overpromising — a self-application of the doctrine's "stay in your lane."
 |---|---|---|
 | [parablex-coding](parablex-coding/SKILL.md) | Code audit / review / feature design (3 modes) | 「監査」「コードレビュー」「audit」 |
 | [parablex-research](parablex-research/SKILL.md) | Tech research / selection / comparison | 「調査」「技術選定」「research」 |
+| [parablex-writing](parablex-writing/SKILL.md) | Doc / spec / proposal drafting & review | 「文書作成」「推敲」「writing」 |
+| [parablex-plan](parablex-plan/SKILL.md) | Stress-testing a plan or design | 「計画レビュー」「設計レビュー」「plan」 |
 
 > Trigger words are Japanese by design (the author works in Japanese). Edit the `name`/`description` in each `SKILL.md` frontmatter to localize.
 
@@ -38,7 +40,7 @@ No overpromising — a self-application of the doctrine's "stay in your lane."
 Conclusion first · Evidence-based · Severity ranking · Explicit confidence · Isolate human decisions · Exhaustive checklist · Actionable next steps · Note strengths too · Stay in your lane
 
 ## Usage (Claude Code)
-- Place each `SKILL.md` under `.claude/skills/{parablex-coding,parablex-research}/` → invoke by trigger word
+- Place each module's `SKILL.md` under `.claude/skills/<module>/` → invoke by trigger word
 - e.g. "audit this file" / "select a React state-management library"
 - Mode example: "audit in feature-plan mode"
 
@@ -53,8 +55,16 @@ parablex-kit/
       checklist-common.md      # language-agnostic
       checklist-frontend.md    # HTML/CSS/JS/TS
       checklist-backend.md     # PHP/Python/Node/API/DB
+      checklist-sql.md         # SQL / databases
+      checklist-wordpress.md   # WordPress / PHP
   parablex-research/
     SKILL.md
+  parablex-writing/
+    SKILL.md
+  parablex-plan/
+    SKILL.md
+  origin/
+    fable5-audit-transcript.md # source material (redacted)
 ```
 
 ## Extending

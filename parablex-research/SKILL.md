@@ -1,6 +1,10 @@
+---
+name: parablex-research
+description: 技術調査・選定・比較検討。推奨先出し・一次情報出典・confidence付与・人間判断分離・捏造禁止。トリガー：「調査」「技術選定」「比較検討」「research」。
+---
 # parablex-research — 調査・技術選定・比較検討
 
-> 用途非依存の調査スキル（weekly-scout を汎用化）。
+> 用途非依存の調査スキル。
 > 共通の型は [../DOCTRINE.md](../DOCTRINE.md) を継承：推奨先出し・根拠主義(URL/一次情報)・confidence・人間判断分離・**捏造/誇張禁止**。
 
 # inputs

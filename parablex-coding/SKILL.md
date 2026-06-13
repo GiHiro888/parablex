@@ -1,6 +1,10 @@
+---
+name: parablex-coding
+description: 言語非依存のコード監査・レビュー・機能設計。3モード(security/feature-plan/final-quality)。行番号根拠・重大度・confidence・人間判断分離・監査中はコード変更なし。トリガー：「監査」「コードレビュー」「公開前チェック」「audit」。
+---
 # parablex-coding — コード監査・レビュー・機能設計
 
-> 言語非依存のコード監査スキル（旧 release-audit を昇格・汎用化）。
+> 言語非依存のコード監査スキル。
 > 共通の型は [../DOCTRINE.md](../DOCTRINE.md) を継承：結論先出し・根拠主義(`file:行`)・重大度・confidence・人間判断分離・**監査中はコード変更なし**。
 
 # inputs
@@ -36,9 +40,11 @@
 6. 指示あればVault保存・知見抽出
 
 # スタック別チェックリスト
+- 全言語共通：[references/checklist-common.md](references/checklist-common.md)
 - フロントエンド(HTML/CSS/JS/TS)：[references/checklist-frontend.md](references/checklist-frontend.md)
 - バックエンド(PHP/Python/Node/API/DB)：[references/checklist-backend.md](references/checklist-backend.md)
-- 全言語共通：[references/checklist-common.md](references/checklist-common.md)
+- SQL/データベース：[references/checklist-sql.md](references/checklist-sql.md)
+- WordPress/PHP(テーマ・プラグイン)：[references/checklist-wordpress.md](references/checklist-wordpress.md)
 
 # 期待出力サンプル（final-quality抜粋）
 ```markdown
