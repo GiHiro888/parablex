@@ -48,6 +48,7 @@ Conclusion first · Evidence-based · Severity ranking · Explicit confidence ·
 ```
 parablex-kit/
   DOCTRINE.md                  # shared method (9 principles + rubrics)
+  VERIFICATION.md              # how to prove a run "functioned" (rubric + protocol)
   README.md / README.ja.md
   parablex-coding/
     SKILL.md
@@ -66,7 +67,12 @@ parablex-kit/
   origin/
     fable5-audit-transcript.md     # source material — EN (main, redacted)
     fable5-audit-transcript.ja.md  # verbatim original — JA
+  verification/
+    baseline-claude.md             # reference run (Claude) for the overlap step
 ```
+
+## Verification
+"Did it work?" is answered with evidence, not vibes. [VERIFICATION.md](VERIFICATION.md) defines four levels (invoked → format-adherent → content-valid → portable), a 9-principle scorecard, and a true-positive sampling method. Reference runs for comparison: [`origin/`](origin/) (Fable 5, source) and [`verification/baseline-claude.md`](verification/baseline-claude.md) (Claude).
 
 ## Extending
 Add a new module (e.g. `parablex-writing`, `parablex-plan`); the DOCTRINE stays shared.
