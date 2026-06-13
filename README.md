@@ -64,7 +64,8 @@ parablex-kit/
   parablex-plan/
     SKILL.md
   origin/
-    fable5-audit-transcript.md # source material (redacted)
+    fable5-audit-transcript.md     # source material — EN (main, redacted)
+    fable5-audit-transcript.ja.md  # verbatim original — JA
 ```
 
 ## Extending

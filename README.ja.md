@@ -62,7 +62,8 @@ parablex-kit/
   parablex-plan/
     SKILL.md
   origin/
-    fable5-audit-transcript.md # 由来となった監査記録（伏字済）
+    fable5-audit-transcript.md     # 由来となった監査記録 — 英語（メイン・伏字済）
+    fable5-audit-transcript.ja.md  # 日本語原文（逐語・正本）
 ```
 
 ## 拡張

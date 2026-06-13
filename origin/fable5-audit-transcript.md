@@ -1,16 +1,18 @@
-# Fable 5 Audit Transcript — Source Material（由来記録）
-> parablex-kit の由来となった、**Claude Fable 5 による実監査の全文記録**。
-> 環境固有情報（パス・ユーザー名）・個人情報・監査対象アプリ名は伏字化（`<repo>` / `<home>` / `expense-app` 等）。指摘内容・行番号・推論は原文のまま。
->
-> **EN:** Full transcript of the actual Claude Fable 5 audit passes this kit was distilled from. Environment paths, usernames, personal info, and the target app name are redacted; the audit findings themselves are verbatim.
+# Fable 5 Audit Transcript — Source Material
 
-> 監査3回＝①公開前セキュリティ ②機能追加の事前設計 ③実装後の最終品質。Fable 5 は監査専任、実装は別モデルが担当。
+**English** | [日本語（逐語・正本 / verbatim original）](fable5-audit-transcript.ja.md)
+
+> Full transcript of the actual Claude Fable 5 audit passes this kit was distilled from.
+> This English version is a **translation**; the authoritative **verbatim** record is the Japanese original ([fable5-audit-transcript.ja.md](fable5-audit-transcript.ja.md)).
+> Only environment-specific info (paths, usernames), personal info, and the target app name are redacted (`<repo>` / `<home>` / `expense-app`). Findings, line numbers, and reasoning are otherwise faithful to the original.
+>
+> Three passes: (1) pre-release security, (2) feature-addition design, (3) post-implementation quality. Fable 5 audited only; a different model implemented.
 
 ---
 
 ## Fable 5 — turn 1
 
-expense-appのHTMLファイルを探して監査します。
+I'll locate and audit the expense-app HTML file.
 
 ## Fable 5 — turn 2
 
@@ -43,93 +45,88 @@ expense-appのHTMLファイルを探して監査します。
 
 ## Fable 5 — turn 5
 
-監査完了。対象：`works/expense-app.html`（364行・単体HTML・localStorage保存）。コード変更なし、計画のみ提示。
+Audit complete. Target: `works/expense-app.html` (364 lines, single-file HTML, localStorage persistence). No code changes; plan only.
 
-# expense-app.html 公開前監査レポート
+# expense-app.html — Pre-Release Audit Report
 
-## 1. 現状のリスク一覧
+## 1. Current risk inventory
 
-### セキュリティ
-| # | リスク | 該当箇所 |
+### Security
+| # | Risk | Location |
 |---|---|---|
-| S1 | **格納型XSS**：`item.shop` を `innerHTML` で無エスケープ挿入。`<img src=x onerror=...>` 等の入力でスクリプト実行 | `render()` L281, `showDetail()` L309 |
-| S2 | **インポート経由XSS**：`importData()` のJSONを無検証で取込 → 細工済バックアップファイルで `shop` / `id` に任意HTML・属性注入（L296の `onclick="showDetail('${s.id}')"` は属性注入点） | L342-352, L296 |
-| S3 | **CSVインジェクション**：`"` エスケープのみ。`=` `+` `-` `@` 開始セル無対策 → Excel開封時に数式実行（例：`=cmd\|...`、`=HYPERLINK(...)` での情報送出） | `exportCSV()` L322 |
-| S4 | **CSPなし**：メタCSP未設定・inline onclick多用のため導入不能な構造 | 全体 |
+| S1 | **Stored XSS**: `item.shop` inserted via `innerHTML` without escaping. Input like `<img src=x onerror=...>` executes script | `render()` L281, `showDetail()` L309 |
+| S2 | **XSS via import**: `importData()` ingests JSON without validation → a crafted backup file injects arbitrary HTML/attributes into `shop` / `id` (the `onclick="showDetail('${s.id}')"` at L296 is an attribute-injection point) | L342-352, L296 |
+| S3 | **CSV injection**: only `"` is escaped. No mitigation for cells starting with `=` `+` `-` `@` → formula execution when opened in Excel (e.g. `=cmd\|...`, exfiltration via `=HYPERLINK(...)`) | `exportCSV()` L322 |
+| S4 | **No CSP**: no meta CSP; heavy inline-onclick usage makes it structurally impossible to add | entire file |
 
-### データ破損
-| # | リスク | 該当箇所 |
+### Data corruption
+| # | Risk | Location |
 |---|---|---|
-| D1 | **起動時クラッシュ**：`loadFromStorage()` の `JSON.parse` がtry/catchなし → localStorage破損で `onload` 全体停止・アプリ起動不能 | L149-152 |
-| D2 | **インポート全上書き**：確認ダイアログなし・スキーマ検証なしで `db` 全置換 → 誤ファイル選択で全データ即消失。不正構造（`expenses` 欠落等）で `render()` 恒久クラッシュ | L342-352 |
-| D3 | **保存失敗の無通知**：`saveToStorage()` のQuotaExceededError未処理 → メモリ上とlocalStorageが乖離、リロードで入力消失 | L154-156 |
-| D4 | **ID精度問題**：`Date.now() + Math.random()`（浮動小数）をHTML属性経由で `parseFloat` 復元 → 文字列化での精度落ちにより選択精算・選択削除が対象を取り違える可能性 | L176, L188, L220 |
-| D5 | **スキーマバージョンなし**：将来の構造変更時に旧データ移行手段なし | 全体 |
+| D1 | **Startup crash**: `JSON.parse` in `loadFromStorage()` has no try/catch → corrupted localStorage halts the whole `onload`; app won't start | L149-152 |
+| D2 | **Import overwrites everything**: no confirm dialog, no schema validation, replaces all of `db` → selecting the wrong file instantly wipes all data. Malformed structure (e.g. missing `expenses`) permanently crashes `render()` | L342-352 |
+| D3 | **Silent save failure**: `saveToStorage()` doesn't handle QuotaExceededError → memory and localStorage diverge; input lost on reload | L154-156 |
+| D4 | **ID precision issue**: `Date.now() + Math.random()` (float) restored via HTML attribute through `parseFloat` → precision loss on stringification may make selective settle/delete target the wrong row | L176, L188, L220 |
+| D5 | **No schema version**: no migration path for future structure changes | entire file |
 
-### 入力検証
-| # | リスク | 該当箇所 |
+### Input validation
+| # | Risk | Location |
 |---|---|---|
-| V1 | 金額：負数・`Infinity`（`1e999`）・小数・巨大値を許容。日本円前提なら整数強制が必要 | `addEntry()` L170-171 |
-| V2 | 日付：空のまま登録可能 → ソート・CSV出力で空欄混入 | L168, 検証なし |
-| V3 | 利用先：文字数上限なし | L169 |
+| V1 | Amount: allows negatives, `Infinity` (`1e999`), decimals, huge values. If JPY is assumed, integer enforcement is needed | `addEntry()` L170-171 |
+| V2 | Date: can register while empty → blanks leak into sort / CSV output | L168, no validation |
+| V3 | Vendor: no length limit | L169 |
 
-### 誤削除・UI・保守性
-| # | リスク | 該当箇所 |
+### Accidental deletion / UI / maintainability
+| # | Risk | Location |
 |---|---|---|
-| U1 | `clearAll()`：confirm 1回のみ・事前バックアップ誘導なし・取消手段なし | L354-361 |
-| U2 | `deleteSelected()`：物理削除・Undoなし | L219-236 |
-| U3 | 精算履歴が直近10件で切捨て（`slice(0,10)`）、画面上に表示なし → 「消えた」誤認 | L287 |
-| U4 | `exportCSV()` が `db.expenses` を破壊的ソート（保存順が変わる副作用） | L321 |
-| U5 | `alert()` 多用・`label` の `for` 属性なし（アクセシビリティ）・`URL.revokeObjectURL` 未実施 | 全体 |
+| U1 | `clearAll()`: single confirm only, no pre-backup prompt, no undo | L354-361 |
+| U2 | `deleteSelected()`: physical delete, no undo | L219-236 |
+| U3 | Settlement history truncated to latest 10 (`slice(0,10)`), not shown on screen → users think it "disappeared" | L287 |
+| U4 | `exportCSV()` destructively sorts `db.expenses` (side effect: stored order changes) | L321 |
+| U5 | Heavy `alert()` use; `label` lacks `for` (accessibility); `URL.revokeObjectURL` not called | entire file |
 
-## 2. 優先度
+## 2. Priority
+- **High** (required before release): S1, S2, S3, D1, D2, D3
+- **Medium**: D4, V1, V2, U1, U3, S4
+- **Low**: V3, U2, U4, U5, D5
 
-- **High**（公開前必須）：S1, S2, S3, D1, D2, D3
-- **Medium**：D4, V1, V2, U1, U3, S4
-- **Low**：V3, U2, U4, U5, D5
+## 3. Files to change
+- `works/expense-app.html` only (keep single-file structure; no new files/libraries)
 
-## 3. 改修対象ファイル
+## 4. Concrete fix approach
+- **S1/S2 (XSS)**: add a shared `escapeHtml()` and apply to every `innerHTML` insertion; or rebuild via `textContent`. Change `onclick="showDetail('${s.id}')"` to `addEventListener` + `dataset` lookup (eliminates attribute injection)
+- **S3 (CSV)**: prefix `'` when a cell starts with `=` `+` `-` `@` `\t` `\r` (standard Excel formula-neutralization)
+- **D1 (corruption resilience)**: wrap `loadFromStorage()` in try/catch; on parse failure, move corrupted data to an `expense_db_corrupted_{timestamp}` key before resetting (never silently discard)
+- **D2 (import defense)**: (1) add a schema validator (`expenses`/`settlements` are arrays; check each element's type/required keys; string-length caps) (2) confirm "this overwrites current data" before import (3) auto-stash current data to a separate localStorage key before overwriting (4) error notice on parse failure
+- **D3 (save failure)**: try/catch in `saveToStorage()`; on failure, clearly state "Could not save. Exporting a backup is recommended"
+- **D4 (ID)**: switch new IDs to `crypto.randomUUID()` (string). Migrate existing data to strings on load (unify comparisons to string equality)
+- **V1/V2**: amount = positive integers only (`Number.isSafeInteger` + upper bound); date = required; vendor = ~100-char cap
+- **U1**: before clear-all, offer to auto-download a JSON backup (or a two-step confirm requiring typing "delete")
+- **U3**: add a "showing latest 10 (of N total)" note, or pagination
+- **U4**: copy before sorting via `[...db.expenses].sort()`
+- **S4 (CSP)**: after removing all inline onclick and switching to `addEventListener`, add `<meta http-equiv="Content-Security-Policy">` (large scope — see #6)
 
-- `works/expense-app.html` のみ（単体HTML構成を維持、新規ファイル・ライブラリ追加なし）
+## 5. Implementation order
+1. **D1 → D3**: harden save/load (the verification base for other fixes; lay an unbreakable foundation first)
+2. **First half of S1/S2**: introduce `escapeHtml()` and apply at all render sites
+3. **D2**: import validation / confirm / stash
+4. **S3**: CSV formula-injection mitigation + U4 (non-destructive sort) together
+5. **V1/V2/V3**: strengthen input validation
+6. **D4**: change ID scheme + migrate existing data
+7. **U1/U2/U3**: accidental-deletion prevention / history note
+8. **S4 + U5**: remove all inline handlers → CSP meta tag → finishing touches (label / revokeObjectURL etc.)
+9. Browser regression check after each stage (register → selective settle → delete → CSV → backup → restore → clear-all)
 
-## 4. 具体的な修正方針
+## 6. Decisions requiring a human
+- **Amount spec**: allow negatives (refunds/offsets)? Integer-only OK? → changes V1's implementation
+- **Import behavior**: keep full-overwrite (+ confirm), or offer merge (append)? → merge is a spec change
+- **History 10-item limit**: keep with a note, or show all / paginate?
+- **Delete undo**: a trash (soft delete) is a spec change, needs approval. A minimal two-step confirm stays within the current spec
+- **CSP scope**: removing all inline handlers touches many lines (every button, dynamic rows). Deployment form (whether static hosting can set headers) also matters → feasibility and timing
+- **ID migration**: whether to auto-migrate existing localStorage data (intend to prompt a backup export beforehand)
 
-- **S1/S2（XSS）**：`escapeHtml()` 共通関数新設、全 `innerHTML` 挿入値に適用。または `textContent` ベースのDOM構築へ置換。`onclick="showDetail('${s.id}')"` は `addEventListener` ＋ `dataset` 参照に変更（属性注入根絶）
-- **S3（CSV）**：セル先頭が `=` `+` `-` `@` `\t` `\r` の場合 `'` を前置（Excel数式無効化の標準対策）
-- **D1（破損耐性）**：`loadFromStorage()` をtry/catchで包み、parse失敗時は破損データを `expense_db_corrupted_{日時}` キーへ退避してから初期化（無断破棄しない）
-- **D2（インポート防御）**：①スキーマ検証関数新設（`expenses`/`settlements` が配列、各要素の型・必須キー確認、文字列長上限）②取込前に「現データを上書きします」confirm ③上書き前に現データを自動でlocalStorage別キーへ退避 ④parse失敗時のエラー通知
-- **D3（保存失敗）**：`saveToStorage()` にtry/catch、失敗時「保存できませんでした。バックアップ出力を推奨」と明示
-- **D4（ID）**：新規IDを `crypto.randomUUID()`（文字列）へ変更。既存データは読込時マイグレーションで文字列化（比較も文字列一致に統一）
-- **V1/V2**：金額＝正の整数のみ（`Number.isSafeInteger` ＋ 上限チェック）、日付＝必須化、利用先＝100文字程度で上限
-- **U1**：全消去前に自動JSONバックアップをダウンロード提案（または「消去」と入力させる二段確認）
-- **U3**：履歴表示「直近10件を表示中（全N件）」の注記追加、またはページング
-- **U4**：`[...db.expenses].sort()` でコピーしてからソート
-- **S4（CSP）**：inline onclick全廃＋`addEventListener` 化の後、`<meta http-equiv="Content-Security-Policy">` 追加（範囲が大きいため下記6で確認）
+confidence: high (S1–S3, D1–D3 verified directly in code. D4's precision issue is a theoretical possibility with low real-world frequency)
 
-## 5. 実装順序
-
-1. **D1 → D3**：保存・読込の防御（他修正の検証基盤。壊れない土台を先に）
-2. **S1/S2前半**：`escapeHtml()` 導入＋全描画箇所適用
-3. **D2**：インポート検証・確認・退避
-4. **S3**:CSV数式インジェクション対策＋U4（非破壊ソート）同時
-5. **V1/V2/V3**：入力検証強化
-6. **D4**：ID方式変更＋既存データ移行
-7. **U1/U2/U3**：誤削除防止・履歴注記
-8. **S4＋U5**：inlineハンドラ全廃 → CSPメタタグ → label/revokeObjectURL等の仕上げ
-9. 各段階後にブラウザで回帰確認（登録→選択精算→削除→CSV→バックアップ→復元→全消去）
-
-## 6. 人間確認が必要な判断
-
-- **金額仕様**：負数（返金・相殺）を許可するか。整数のみ強制でよいか → V1の実装内容が変わる
-- **インポート動作**：全上書き維持（＋確認）か、マージ（追記）選択式か → マージは仕様変更に該当
-- **履歴10件制限**：注記のみで維持か、全件表示／ページング化か
-- **削除のUndo**：ゴミ箱（ソフトデリート）導入は仕様変更のため要承認。最低限の二段確認のみなら現仕様内
-- **CSP導入範囲**：inlineハンドラ全廃は変更行数が大きい（全ボタン・動的行）。公開形態（静的ホスティングのヘッダ設定可否）も影響 → 実施可否と時期
-- **ID移行**：既存localStorageデータの自動マイグレーション実施可否（実施前にバックアップ出力を促す想定）
-
-confidence: high（S1〜S3・D1〜D3はコード上で直接確認済。D4の精度問題は理論上の発生可能性で実害頻度は低）
-
-承認いただければ実装順序1から着手します。
+I'll start from implementation step 1 on approval.
 
 ## Fable 5 — turn 6
 
@@ -142,129 +139,123 @@ confidence: high（S1〜S3・D1〜D3はコード上で直接確認済。D4の精
 
 ## Fable 5 — turn 7
 
-監査完了。コード変更なし、現行実装（`works/expense-app.html`）の実データ構造を確認済み。
+Audit complete. No code changes; verified the actual data structure of the current implementation (`works/expense-app.html`).
 
-**結論先出し**：着手順は **3摘要 → 4支払方法 → 1税率（記録のみ）→ 5JSON統合 → 2親子**。CSV統合・税額計算・2027年1%は延期推奨。現行バリデータ（`isValidDb`）は未知フィールドを拒否しない設計のため、**全新項目をoptionalフィールドで追加すれば既存データ移行は不要**（旧JSON→新アプリ、新JSON→旧アプリの双方向互換が成立）。
+**Conclusion first**: order = **3 memo → 4 payment method → 1 tax rate (record only) → 5 JSON merge → 2 parent-child**. Defer CSV merge, tax-amount calc, and the 2027 1% rule. Because the current validator (`isValidDb`) does not reject unknown fields, **adding all new items as optional fields needs no migration of existing data** (old JSON → new app, new JSON → old app: bidirectional compatibility holds).
 
 ---
 
-## 1. 機能ごとの実装難度
+## 1. Implementation difficulty per feature
 
-| # | 機能 | 難度 | 主因 |
+| # | Feature | Difficulty | Main reason |
 |---|---|---|---|
-| 3 | 摘要欄 | **低** | optionalフィールド1個＋render条件分岐のみ |
-| 4 | 支払い方法 | **低** | 固定選択式（enum）なら検証・XSS懸念ほぼゼロ |
-| 1 | 税率別計算 | **中** | 記録・集計は容易。税額「計算」は端数仕様の事前確定が必須 |
-| 5 | データ統合 | **高（JSON）/ 非推奨（CSV）** | 重複判定・整合性検証・プレビューUI。CSVは下記4の致命的問題あり |
-| 2 | 親子管理 | **高** | データ構造影響最大・UI複雑化最大・CSV出力方式の設計が必要 |
+| 3 | Memo field | **Low** | one optional field + a render conditional only |
+| 4 | Payment method | **Low** | fixed select (enum) → validation/XSS concern ~zero |
+| 1 | Per-rate tax calc | **Medium** | recording/aggregation is easy; "calculating" tax requires fixing the rounding spec first |
+| 5 | Data merge | **High (JSON) / not recommended (CSV)** | dedup, integrity validation, preview UI. CSV has the fatal issue in #4 below |
+| 2 | Parent-child | **High** | largest data-structure impact, largest UI complexity, requires CSV-output design |
 
-## 2. データ構造への影響
+## 2. Impact on data structure
 
-現行expense：`{id, date, shop, amount, status, settlement_id?}`
+Current expense: `{id, date, shop, amount, status, settlement_id?}`
 
 ```yaml
-# 追加フィールド案（全てoptional＝既存データ無変更で共存）
-memo: string        # 機能3。最大200字目安
-payment: string     # 機能4。enum: 現金|クレジットカード|PayPay|楽天ペイ|d払い|au PAY
-taxRate: number     # 機能1。8 | 10 のみ許可。未設定=未分類
-items:              # 機能2。任意（選択式）
-  - name: string    # 最大100字
-    amount: number  # 正の整数
-    taxRate: number # 将来拡張
+# Proposed added fields (all optional = coexist without changing existing data)
+memo: string        # Feature 3. ~200 chars max
+payment: string     # Feature 4. enum: cash|credit card|PayPay|Rakuten Pay|d-payment|au PAY
+taxRate: number     # Feature 1. only 8 | 10 allowed. unset = uncategorized
+items:              # Feature 2. optional (opt-in)
+  - name: string    # 100 chars max
+    amount: number  # positive integer
+    taxRate: number # future extension
 ```
 
-- settlements構造：変更不要（精算は親`amount`単位を維持。機能2でも子は表示専用とすれば影響遮断可能）
-- `isValidExpense` への追記必須：「`undefined`許容＋存在時のみ型・範囲・enum検証」パターン
-- 機能5：構造追加なし。ただし旧形式の数値id（`Date.now()+Math.random()`由来）が残存し得るため、重複判定は `String(id)` 比較必須
+- settlements structure: no change needed (settlement stays at the parent `amount` unit; even with Feature 2, keeping children display-only isolates the impact)
+- Must add to `isValidExpense`: the "allow `undefined` + validate type/range/enum only when present" pattern
+- Feature 5: no structural additions. But old-style numeric ids (from `Date.now()+Math.random()`) may remain, so dedup must compare via `String(id)`
 
-## 3. 既存JSON/CSVとの互換性リスク
+## 3. Compatibility risk with existing JSON/CSV
 
-**JSON：リスク低**
-- 旧バックアップ→新アプリ：新フィールド`undefined`→optional検証で通過。問題なし
-- 新バックアップ→旧アプリ：現行`isValidDb`は未知フィールド非検査→通過。問題なし
-- 注意点1つ：新検証を「存在時は厳格」にすると、手編集された不正値（例 `taxRate: "10%"`）で**ファイル全体が拒否される**現行仕様（all-or-nothing）。1件不正でも全体読込不能→「不正フィールドのみ除去して継続」方式の検討余地あり
+**JSON: low risk**
+- old backup → new app: new fields `undefined` → pass optional validation. No problem
+- new backup → old app: current `isValidDb` doesn't inspect unknown fields → passes. No problem
+- One caveat: making the new validation "strict when present" means a hand-edited invalid value (e.g. `taxRate: "10%"`) causes **the whole file to be rejected** (current all-or-nothing behavior). One bad record blocks the entire load → worth considering a "drop only the invalid fields and continue" approach
 
-**CSV：リスク中〜高**
-- 列追加（摘要・支払方法・税率）→ 旧CSVと列数不一致。Excel閲覧用途では実害小
-- **致命的**：現CSVに`id`列なし→機能5のCSV統合で重複判定が原理的に不可能。同一明細の再統合＝二重計上が必ず起きる
-- CSVパース自前実装（引用符内カンマ・改行・`""`エスケープ・BOM）は外部ライブラリ禁止制約下でバグ温床
+**CSV: medium–high risk**
+- adding columns (memo, payment, tax rate) → column-count mismatch with old CSV. Minor real harm for Excel-viewing use
+- **Fatal**: current CSV has no `id` column → dedup in Feature 5's CSV merge is fundamentally impossible. Re-merging the same record = double counting, guaranteed
+- Hand-rolled CSV parsing (commas/newlines inside quotes, `""` escaping, BOM) is a bug breeding ground under the no-external-library constraint
 
-## 4. UI複雑化リスク
+## 4. UI-complexity risk
+- input form: 3 → up to 6 fields. Two rows via `form-row` flex. Mitigation: **keep optional as default and the required set at the current 3 fields**
+- this app uses large fonts (20–24px) → more fields means a taller layout / more scrolling. Recommend applying the "hide column if memo is empty" approach (Feature 3 requirement) to tax rate and payment too
+- Feature 2's dynamic line-item-row UI is the biggest complexity driver. Expanding child rows in the list can reuse a modal (existing `showDetail` pattern) to reduce it
+- Feature 5's "popup window": `window.open` can't open new HTML (single-file constraint) + is subject to popup blockers → **strongly recommend reusing the existing modal**
 
-- 入力フォーム：現3項目→最大6項目。`form-row`flexで2段化。**省略可をデフォルトにし必須は現3項目のまま維持**が緩和策
-- 本アプリは大フォント設計（20〜24px）→ 項目増で縦長化・スクロール増加。表示列は「摘要未記入なら非表示」方式（機能3要件）を税率・支払方法にも適用推奨
-- 機能2の動的明細行追加UIが複雑化の最大要因。一覧での子行展開はモーダル流用（既存`showDetail`パターン）で軽減可能
-- 機能5の「ポップアップ型ウインドウ」：`window.open`は新規HTML不可（単体ファイル制約）＋ポップアップブロッカー対象→**既存モーダル流用を強く推奨**
-
-## 5. 税計算仕様で先に決めるべき事項
-
-| 決定事項 | 選択肢 | 推奨（confidence） |
+## 5. Tax-calc spec items to decide first
+| Decision | Options | Recommendation (confidence) |
 |---|---|---|
-| 入力方式 | 税込（内税逆算）/ 税抜＋税額 | 税込維持・逆算表示（high：現行UX不変） |
-| 端数処理 | 切捨て / 四捨五入 / 切上げ | **人間決定必須**。税務上の正確性は断定しない |
-| 計算単位 | 1件ごと / 税率別合計から | 1件ごと（mid：個人用途。インボイス式は合計単位だが本アプリの目的外） |
-| 税率の持ち方 | レシート単位 / 明細単位 | **先にレシート単位**。税率混在レシートは分割登録で回避→機能2実装時に明細単位へ拡張（手戻り防止の要） |
-| 保存内容 | 税額を保存 / 税率のみ保存 | 税率のみ保存・税額は表示時計算（high：端数仕様変更時に過去データ非汚染） |
-| 2027年食料品1% | — | **仮仕様として分離**。税率は固定enum（8/10）でユーザー選択式とし、日付による自動判定は実装しない→法制度確定後にenumへ追加するだけで対応可 |
+| Input method | tax-included (back-calc) / tax-excluded + tax | keep tax-included, show back-calc (high: UX unchanged) |
+| Rounding | floor / round / ceil | **human decision required**. Won't assert tax-law correctness |
+| Calc unit | per-record / from per-rate totals | per-record (mid: personal use. invoice style is total-unit but out of this app's scope) |
+| How the tax rate is held | per-receipt / per-line-item | **per-receipt first**. Avoid mixed-rate receipts by splitting entries → extend to per-line-item when Feature 2 lands (key to avoiding rework) |
+| What to store | store tax amount / store rate only | store rate only, compute tax at display time (high: changing the rounding spec won't contaminate past data) |
+| 2027 food 1% | — | **isolate as a provisional spec**. Tax rate is a fixed user-selected enum (8/10); do not implement date-based auto-detection → just add to the enum once the law is finalized |
 
-## 6. 実装すべき順序
+## 6. Order to implement
+1. **Feature 3 (memo)**: smallest change; establish the optional-field validation pattern
+2. **Feature 4 (payment)**: establish the enum-validation pattern. Same structure as 3, low risk
+3. **Feature 1 (tax rate — record + per-rate aggregation only)**: defer tax-amount calc until the rounding spec is fixed
+4. **Feature 5 (JSON merge only)**: start after the validations for fields added in 1–3 settle (merge depends on all-field validation)
+5. **Feature 2 (parent-child)**: last. Design together with "extend tax rate to per-line-item" from 1
 
-1. **機能3（摘要）**：最小変更でoptionalフィールド追加の検証パターンを確立
-2. **機能4（支払方法）**：enum検証パターン確立。3と同一構造のため低リスク
-3. **機能1（税率・記録＋税率別集計のみ）**：税額計算は端数仕様確定まで保留
-4. **機能5（JSON統合のみ）**：1〜3で増えたフィールドの検証が固まってから着手（統合は全フィールド検証に依存）
-5. **機能2（親子管理）**：最後。1の「明細単位税率への拡張」と同時設計
+## 7. Items to defer
+- **CSV merge** (part of Feature 5): no id column → dedup impossible. Fixing it requires adding an id column to CSV = breaks old-CSV compat. JSON merge achieves the same goal, so **recommend skipping**
+- **Auto tax-amount display**: waiting on the human rounding decision
+- **2027 food 1%**: isolate as a law-dependent item to confirm (provisional spec). Design so a future enum addition suffices; wait
+- **Standalone window for the "merged DL file"**: replace with an in-modal preview + reuse existing `downloadBlob`
 
-## 7. 実装を延期すべき項目
+## 8. Bite-sized implementation tasks to hand to Sonnet
+Each task = ~one commit, independently verifiable (consistent with the earlier "2–3 items per batch"):
 
-- **CSV統合**（機能5の一部）：id列なし→重複判定不能。解決にはCSVへid列追加が必要＝旧CSV非互換。JSON統合で同目的を達成可能なため**見送り推奨**
-- **税額の自動計算表示**：端数処理の人間決定待ち
-- **2027年食料品1%**：法制度確認必要項目として分離（仮仕様）。enum追加のみで将来対応可能な設計にして待機
-- **「統合済みDLファイル提供」の独立ウインドウ化**：モーダル内プレビュー＋既存`downloadBlob`流用で代替
-
-## 8. Sonnetへ渡すための小分け実装タスク案
-
-各タスク＝1コミット相当・独立検証可能な粒度（前回回答の「1バッチ2〜3項目」と整合）：
-
-| ID | タスク | 依存 |
+| ID | Task | Depends on |
 |---|---|---|
-| T1 | `memo`追加：フォーム＋`addEntry`検証＋`isValidExpense`＋render（未記入非表示）＋モーダル表示。escapeHtml必須 | なし |
-| T2 | `memo`のCSV列追加。`csvSafe`＋`""`エスケープ適用 | T1 |
-| T3 | `payment`追加：select要素＋ホワイトリスト検証＋render＋CSV列 | なし |
-| T4 | `taxRate`追加：select（8/10/未分類）＋検証（enum） | なし |
-| T5 | 税率別集計表示：未精算合計の下に「10%対象: n円 / 8%対象: n円 / 未分類: n円」 | T4 |
-| T6 | CSV税率列追加 | T4 |
-| T7 | JSON統合・ロジック層：ファイル読込＋`isValidDb`検証＋id重複検出（`String(id)`比較）＋settlement孤児参照チェック関数。UIなし | T1–T4完了後 |
-| T8 | JSON統合・UI層：プレビューモーダル（追加n件/重複スキップn件/警告表示）＋実行前自動バックアップ（既存`expense_db_backup_`パターン流用） | T7 |
-| T9 | 親子・構造：`items` optional＋検証（name長・amount正整数・件数上限） | T7まで完了後 |
-| T10 | 親子・入力：明細行の動的追加UI＋合計との差異警告（不一致は警告のみで登録許可） | T9 |
-| T11 | 親子・表示：一覧に明細有マーク＋モーダルで子明細表示 | T9 |
-| T12 | 親子・CSV出力方式（事前に方式決定が必要：親行のみ/親子行混在/別ファイル） | T11＋人間決定 |
-| T13 | 税額逆算表示（端数仕様確定後） | T5＋人間決定 |
+| T1 | Add `memo`: form + `addEntry` validation + `isValidExpense` + render (hide if empty) + modal display. escapeHtml required | none |
+| T2 | Add `memo` CSV column. Apply `csvSafe` + `""` escaping | T1 |
+| T3 | Add `payment`: select element + whitelist validation + render + CSV column | none |
+| T4 | Add `taxRate`: select (8/10/uncategorized) + validation (enum) | none |
+| T5 | Per-rate aggregation display: below the unsettled total, "10% target: ¥n / 8% target: ¥n / uncategorized: ¥n" | T4 |
+| T6 | Add CSV tax-rate column | T4 |
+| T7 | JSON merge — logic layer: file read + `isValidDb` validation + id-dup detection (`String(id)` compare) + settlement-orphan reference check function. No UI | after T1–T4 |
+| T8 | JSON merge — UI layer: preview modal (n added / n duplicates skipped / warnings) + auto-backup before running (reuse existing `expense_db_backup_` pattern) | T7 |
+| T9 | Parent-child — structure: `items` optional + validation (name length, amount positive integer, count cap) | after T7 |
+| T10 | Parent-child — input: dynamic line-row add UI + warn on mismatch with total (mismatch warns only, still allows registration) | T9 |
+| T11 | Parent-child — display: mark rows that have line items in the list + show child items in the modal | T9 |
+| T12 | Parent-child — CSV output method (method must be decided first: parent rows only / mixed parent-child / separate file) | T11 + human decision |
+| T13 | Tax back-calc display (after the rounding spec is fixed) | T5 + human decision |
 
-## 9. 人間に確認すべき判断事項
-
-1. **税の端数処理**：切捨て/四捨五入/切上げ（税務上の正確性に直結。本監査では断定しない）
-2. **税率の付与単位**：レシート単位先行案（上記5節）の承認可否
-3. **親子の合計不一致許容**：値引き・ポイント充当でレシート合計≠明細合計となるケースの扱い（推奨：警告のみで登録許可）
-4. **CSV統合の見送り**：承認可否。実装する場合はCSVへid列追加（旧CSV非互換）の受容が前提
-5. **統合時の重複処理方針**：スキップ（推奨）/ 上書き / 両方保持
-6. **支払い方法リストの確定**：選択肢の内容・並び順（自由入力欄を設けるか→設けない推奨。XSS/検証コスト増のため）
-7. **検証失敗時の挙動変更**：現行「1件不正で全体拒否」→「不正分のみ除外して継続」へ緩和するか（統合機能では特に影響大）
-8. **schemaバージョン（D5）**：「現状問題なし」確定済みの前提は維持。ただし機能5実装時のみ、統合元ファイルの世代識別用として再考の余地あり（任意・軽微）
+## 9. Decisions to confirm with a human
+1. **Tax rounding**: floor/round/ceil (directly tied to tax-law correctness; this audit won't assert it)
+2. **Tax-rate granularity**: approve the per-receipt-first proposal (section 5)?
+3. **Allow parent-child total mismatch**: handling when receipt total ≠ line-item total due to discounts/points (recommend: warn only, still allow registration)
+4. **Skip CSV merge**: approve? If implementing, accepting an id column in CSV (old-CSV incompat) is a prerequisite
+5. **Dedup policy on merge**: skip (recommended) / overwrite / keep both
+6. **Finalize the payment-method list**: contents/order (offer a free-text field? → recommend not, due to XSS/validation cost)
+7. **Change behavior on validation failure**: relax current "one bad record rejects all" → "exclude only the bad ones and continue"? (especially impactful for merge)
+8. **Schema version (D5)**: keep the established "no problem for now" premise. Only when implementing Feature 5 is there minor room to reconsider, for identifying source-file generations (optional, minor)
 
 ---
 
-**構成3案まとめ**：
-- **最小構成**：T1〜T4（摘要＋支払方法＋税率記録）。データ構造影響＝optional3フィールドのみ
-- **安全構成**：最小＋T5〜T8（税率別集計＋JSON統合）。端数計算を含まないため税務リスクなし、統合はプレビュー＋自動バックアップ＋重複スキップで誤統合防止
-- **将来拡張構成**：＋T9〜T13（親子管理＋税額計算＋2027年1%対応＋CSV統合再検討）
+**Three-configuration summary**:
+- **Minimal**: T1–T4 (memo + payment + tax-rate record). Data-structure impact = 3 optional fields only
+- **Safe**: minimal + T5–T8 (per-rate aggregation + JSON merge). No tax calc → no tax risk; merge guarded by preview + auto-backup + dup-skip
+- **Future-extended**: + T9–T13 (parent-child + tax calc + 2027 1% + reconsider CSV merge)
 
-実装開始の指示があれば、T1から着手します。
+On the instruction to start, I'll begin from T1.
 
 ## Fable 5 — turn 8
 
-監査を実施します。まず現在のファイル全体を確認します。
+I'll run the audit. First, I'll review the whole current file.
 
 ## Fable 5 — turn 9
 
@@ -277,72 +268,72 @@ items:              # 機能2。任意（選択式）
 
 ## Fable 5 — turn 10
 
-# 総合評価
+# Overall rating
 
-**B**（公開可能水準。致命的問題なし。High 1件の修正を推奨）
+**B** (release-ready level. No critical issues. Fixing the 1 High is recommended)
 
-# 致命的問題
+# Critical issues
 
-なし
+None
 
 # High
 
-**孤児明細（精算履歴なき「済」明細）の確認・修復UIが存在しない**
-- 統合時の警告文（866-868行）で「消去または編集調整をご検討ください」と案内するが、実行手段なし
-- 根拠：
-  - 未精算表は `status === "未"` のみ表示（622行）→ 孤児は非表示
-  - `deleteSelected` は未精算表のチェックボックス前提（573行）→ 孤児を消去不可
-  - `startEdit` は未精算行の編集ボタンのみ起点（255行）→ 孤児を編集不可
-  - `showDetail` は精算履歴リンク起点（259-262行）→ 孤児の精算IDは履歴に存在せず到達不可
-- 結果：孤児は件数表示・CSV・JSONにのみ現れ、UI上で永久に操作不能。ユーザー承認済み仕様「確認後消去か編集調整を促す」が実質未達
+**No UI to review/repair orphan records (settled records with no settlement history)**
+- The merge warning (lines 866-868) advises "consider deleting or editing to adjust," but provides no means to do so
+- Evidence:
+  - the unsettled table shows only `status === "未"` (unsettled) (line 622) → orphans are hidden
+  - `deleteSelected` assumes the unsettled-table checkboxes (line 573) → can't delete orphans
+  - `startEdit` is triggered only by the unsettled-row edit button (line 255) → can't edit orphans
+  - `showDetail` is triggered from settlement-history links (lines 259-262) → an orphan's settlement id isn't in history, so it's unreachable
+- Result: orphans appear only in counts, CSV, and JSON; permanently un-actionable in the UI. The user-approved spec "after checking, prompt deletion or editing adjustment" is effectively unmet
 
 # Medium
 
-1. **localStorage内バックアップの無限蓄積**
-   - `expense_db_backup_*`（803・856行）、`expense_db_corrupted_*`（389-390行）に削除手段・上限なし
-   - インポート反復で5MB枠を圧迫 → `saveToStorage` 失敗の遠因。開発者ツール以外で掃除不可
+1. **Unbounded accumulation of in-localStorage backups**
+   - `expense_db_backup_*` (lines 803, 856), `expense_db_corrupted_*` (lines 389-390) have no deletion means or cap
+   - repeated imports pressure the 5MB quota → an underlying cause of `saveToStorage` failure. Can't be cleaned except via dev tools
 
-2. **date文字列の形式検証なし**
-   - `isValidExpense` は `typeof e.date === 'string'` のみ（293行）
-   - CSV出力で日付は引用符なし（756行）→ カンマ入りdateを含むJSONをインポートするとCSV列ずれ。XSSはescapeHtmlで防止済みのため整合性問題に限定
+2. **No date-string format validation**
+   - `isValidExpense` only checks `typeof e.date === 'string'` (line 293)
+   - CSV output leaves the date unquoted (line 756) → importing JSON with a comma-containing date shifts CSV columns. XSS is prevented by escapeHtml, so this is limited to an integrity issue
 
-3. **モバイル表示**
-   - 8列テーブル＋`font-size: 22px`＋メディアクエリなし・`overflow-x`ラッパーなし → スマホで横はみ出し
-   - items バッジの `title` ホバー（654行）はタッチ端末で機能せず（精算後モーダルでは閲覧可）
+3. **Mobile display**
+   - 8-column table + `font-size: 22px` + no media query + no `overflow-x` wrapper → horizontal overflow on phones
+   - the items badge's `title` hover (line 654) doesn't work on touch devices (viewable in the post-settlement modal)
 
 # Low
 
-1. **不整合データでの二重減算**：`status:"未"`＋`settlement_id`持ちの明細（isValidExpenseが許容、297-299行）が精算内訳に表示され、「未精算に戻す」で `total` を再減算可能（713-715行）。craftedなJSONインポート経由のみ発生
-2. **統合プレビューの孤児件数が過大報告**：`mergeDb` は統合後DB全体を走査（366-369行）→ 統合前から存在する孤児も「今回の統合による孤児」のように表示
-3. **置き換え型インポートは孤児を無警告で受容**：`importData`（776行）に孤児チェックなし。統合側（warns）と非対称
-4. **編集モード残留**：インポート/全消去後も `editingId`・「編集中」表示が残存。送信時ガード（460-465行）で実害なし、表示のみ不整合
-5. **金額入力の暗黙変換**：`formatAmountInput`（277-283行）が「1.5」→「15」へ無警告変換
-6. **重複コード**：フォームクリア3箇所（478-483・492-497・526-531行）、taxCellテンプレート2箇所（646-648・691-693行）、ファイル読込ボイラープレート2箇所（importData/importMergeData）
-7. **`crypto.randomUUID`**：非HTTPS環境（http://配信）で未定義 → 登録不能。HTTPS/file:///localhostでは問題なし
-8. **マジックナンバー**：textarea `maxlength="2020"`（103行）の根拠（20項目×100字＋改行19）が未記載
-9. **settlement.totalと明細合計の整合検証なし**：インポートデータのtotal乖離を検出不可
+1. **Double subtraction on inconsistent data**: a record with `status:"未"` + a `settlement_id` (allowed by isValidExpense, lines 297-299) shows in the settlement breakdown, and "return to unsettled" can re-subtract from `total` (lines 713-715). Only via crafted JSON import
+2. **Merge preview over-reports orphan count**: `mergeDb` scans the whole post-merge DB (lines 366-369) → pre-existing orphans are shown as if "caused by this merge"
+3. **Replace-type import accepts orphans without warning**: `importData` (line 776) has no orphan check; asymmetric with the merge side (which warns)
+4. **Edit-mode lingers**: after import/clear-all, `editingId` and the "editing" indicator remain. The submit-time guard (lines 460-465) means no real harm, display-only inconsistency
+5. **Implicit amount conversion**: `formatAmountInput` (lines 277-283) silently converts "1.5" → "15"
+6. **Duplicate code**: form-clear in 3 places (lines 478-483, 492-497, 526-531), taxCell template in 2 places (lines 646-648, 691-693), file-read boilerplate in 2 places (importData/importMergeData)
+7. **`crypto.randomUUID`**: undefined in non-HTTPS (http:// serving) → can't register. No problem on HTTPS/file:///localhost
+8. **Magic number**: the basis for textarea `maxlength="2020"` (line 103) (20 items × 100 chars + 19 newlines) is undocumented
+9. **No integrity check between settlement.total and line-item sum**: can't detect total drift in imported data
 
-# 要件漏れ
+# Missing requirements
 
-- 孤児明細の消去・編集調整手段（High 1と同根。警告文の約束が未実装）
-- CSVへの内訳メモ（items）列 → **合意済みの対象外**（要件漏れではなく決定事項として記録）
-- 2027年税制1%分離 → **延期決定済み**
+- a means to delete/edit-adjust orphan records (same root as High 1; the warning's promise is unimplemented)
+- a CSV column for the breakdown memo (items) → **agreed out of scope** (recorded as a decision, not a missing requirement)
+- isolating the 2027 1% tax rule → **already decided to defer**
 
-# 良い実装
+# Good implementations
 
-- **XSS対策の一貫性**：全動的挿入で `escapeHtml` 適用、属性値含め漏れなし。`modal-title`・`edit-mode-target` は `innerText`/`textContent` 使用
-- **ホワイトリスト検証**：payment（PAYMENT_METHODS）・taxRate（TAX_RATES）・精算ID（ID_PATTERN）で自由文字列を排除
-- **CSVインジェクション対策**：`csvSafe`（737-740行）で数式先頭文字をエスケープ、BOM付きでExcel互換
-- **多層防御のデータ保護**：読込時検証＋破損データ隔離退避（388-393行）、破壊的操作前の自動バックアップ、clearAllの3段階確認＋バックアップ提案
-- **後方/前方互換**：新フィールド全て任意扱い → 旧バックアップ読込可・新バックアップを旧版でも読込可
-- **`String(id)` 比較の徹底**：旧数値ID/新UUID混在に対応
-- **calcTaxの浮動小数点対策**（214-219行）：整数演算化＋ε加算で `1080/1.08→999.99…` 型の誤差を排除、検証済み
-- **CSP整合**：inlineハンドラ全廃＋イベント委譲で `script-src` 制約と両立
+- **Consistent XSS defense**: `escapeHtml` applied to all dynamic insertions, including attribute values, with no gaps. `modal-title` / `edit-mode-target` use `innerText`/`textContent`
+- **Whitelist validation**: payment (PAYMENT_METHODS), taxRate (TAX_RATES), settlement ID (ID_PATTERN) exclude free strings
+- **CSV-injection mitigation**: `csvSafe` (lines 737-740) escapes leading formula chars; BOM for Excel compatibility
+- **Layered data protection**: validate-on-load + quarantine corrupted data (lines 388-393), auto-backup before destructive ops, clearAll's 3-step confirm + backup prompt
+- **Backward/forward compatibility**: all new fields optional → old backups readable, new backups readable by the old version
+- **Thorough `String(id)` comparison**: handles mixed old-numeric / new-UUID IDs
+- **calcTax float mitigation** (lines 214-219): integer arithmetic + epsilon removes `1080/1.08 → 999.99…`-type errors, verified
+- **CSP consistency**: removing all inline handlers + event delegation coexists with the `script-src` constraint
 
-# 次に実装すべき機能
+# Features to implement next
 
-1. **孤児明細の修復UI**（High対応・最優先）：孤児を未精算表に警告表示 or 専用セクションで「未精算に戻す／消去」提供
-2. **localStorageバックアップ管理**：`expense_db_backup_*` の一覧・復元・削除UI＋保持上限（例：直近3件）
-3. **モバイル対応**：テーブルに `overflow-x: auto` ラッパー＋メディアクエリ
-4. **date形式検証**：`/^\d{4}-\d{2}-\d{2}$/` を `isValidExpense`/`isValidSettlement` へ追加
-5. **リファクタ**：`resetForm()` 共通化・taxCell生成関数化・ファイル読込共通化（機能追加前の負債返済）
+1. **Orphan-record repair UI** (addresses High, top priority): show orphans in the unsettled table with a warning, or a dedicated section offering "return to unsettled / delete"
+2. **localStorage backup management**: list/restore/delete UI for `expense_db_backup_*` + a retention cap (e.g. latest 3)
+3. **Mobile support**: an `overflow-x: auto` wrapper on the table + media queries
+4. **Date format validation**: add `/^\d{4}-\d{2}-\d{2}$/` to `isValidExpense`/`isValidSettlement`
+5. **Refactor**: unify `resetForm()`, extract a taxCell generator, unify file-read (pay down debt before adding features)
